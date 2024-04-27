@@ -21,13 +21,14 @@ int main()
     {
         std::cout << "1. Imprimir Registros: Cliente.bin\n";
         std::cout << "2. Imprimir Registros: Producto.bin\n";
-        opcionMenuSecundario = auxiliar.validarInt(1);
+        opcionMenuSecundario = auxiliar.validarInt(2);
         if (opcionMenuSecundario == 1)
         {
             registro.listarClientes();
         }
         else if (opcionMenuSecundario == 2)
         {
+            registro.listarProductos();
         }
     }
     else if (opcionMenuPrincipal == 2)
