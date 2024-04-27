@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <fstream>
 #include <chrono>
+#include <time.h>
+#include <sys/time.h>
 
 #include "auxiliares.h"
 #include "Controller/Controller.h"
@@ -88,19 +90,21 @@ void ordenamientoQuicksort()
             producto.description[i] = toupper(producto.description[i]);
         }
     }
-    std::chrono::time_point<std::chrono::high_resolution_clock> instanteInicial, instanteFinal;
-    instanteInicial = std::chrono::high_resolution_clock::now();
-    quicksort(productos, 0, productos.size() - 1);
-    instanteFinal = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> segundos = instanteFinal - instanteInicial;
 
+    // Tomar el tiempo de ejecución
+    struct timeval t, t2;
+    int microsegundos;
+    gettimeofday(&t, NULL);
+    quicksort(productos, 0, productos.size() - 1);
+    gettimeofday(&t2, NULL);
+    microsegundos = ((t2.tv_usec - t.tv_usec) + ((t2.tv_sec - t.tv_sec) * 1000000.0f));
     for (const auto &producto : productos)
     {
         std::cout << i << ". " << producto.description << "\n";
         i++;
     }
     std::cout << "Ordenamiento terminado.\n";
-    std::cout << "Tiempo de ejecucion de Quicksort: " << segundos.count() << " seconds.\n";
+    printf("Tiempo de ejecucion de Quicksort: %.16g microsegundos.\n", microsegundos);
 
     return;
 }
