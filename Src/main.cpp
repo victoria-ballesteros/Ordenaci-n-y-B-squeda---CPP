@@ -23,13 +23,19 @@ void ordenamientoQuicksort();
 int dividirQuicksort(std::vector<Producto> &producto, int izquierda, int derecha);
 void quicksort(std::vector<Producto> &producto, int izquierda, int derecha);
 
+// Auxiliar para los ordenamientos por Mezcla
+int inicializarArchivos();
+void mezclar(std::string f1, std::string f2, std::string f, int lonSec, int numReg);
+
 // Método por Mezcla Directa
 void ordenamientoMezclaDirecta();
 void distribuir(std::string f, std::string f1, std::string f2, int longSec, int numReg);
 void subSecuencia(std::ifstream &f, std::ofstream &t, int longSec);
-void mezclar(std::string f1, std::string f2, std::string f, int lonSec, int numReg);
 
 // Método por Mezcla Natural
+void ordenamientoMezclaNatural();
+void distribuirNatural(std::string f, std::string f1, std::string f2, int longSec, int numReg);
+void subSecuenciaNatural(std::ifstream &f, std::ofstream &t, int longSec);
 
 int main()
 {
@@ -61,7 +67,9 @@ int main()
         system("cls");
         std::cout << "1. Ordenar Alfabeticamente: Producto.bin\n";
         std::cout << "2. Ordenar Alfabeticamente (Por Mezcla Directa): Cliente.bin\n";
-        opcionMenuSecundario = auxiliar.validarInt(2);
+        std::cout << "3. Ordenar Alfabeticamente (Por Mezcla Natural): Cliente.bin\n";
+
+        opcionMenuSecundario = auxiliar.validarInt(3);
 
         if (opcionMenuSecundario == 1)
         {
@@ -70,6 +78,10 @@ int main()
         else if (opcionMenuSecundario == 2)
         {
             ordenamientoMezclaDirecta();
+        }
+        else if (opcionMenuSecundario == 3)
+        {
+            ordenamientoMezclaNatural();
         }
     }
 }
@@ -187,17 +199,15 @@ void dividirArchivo()
     delete[] buffer;
 }
 
-void ordenamientoMezclaDirecta()
+int inicializarArchivos()
 {
-    int longSec;
-
     // Abrimos el archivo original para duplicarlo en el auxiliar
     std::ifstream file("../Database/Cliente.bin", std::ios::binary | std::ios::ate);
     std::fstream ClienteOrdenadoAux("../Database/ClienteOrdenado.bin", std::ios::in | std::ios::out | std::ios::trunc | std::ios::binary);
     if (!file || !ClienteOrdenadoAux)
     {
         std::cout << "No se pudo abrir uno de los archivos temporales.\n";
-        return;
+        return -1;
     }
 
     // Calculamos el número de registros
@@ -220,6 +230,15 @@ void ordenamientoMezclaDirecta()
     ClienteOrdenadoAux.write((char *)buffer, (numEstructuras) * sizeof(Cliente));
     delete[] buffer;
     ClienteOrdenadoAux.close();
+
+    return numEstructuras;
+}
+
+void ordenamientoMezclaDirecta()
+{
+    int longSec;
+
+    int numEstructuras = inicializarArchivos();
 
     // Empezamos el ordenamiento en 1
     longSec = 1;
@@ -360,6 +379,99 @@ void mezclar(std::string f1, std::string f2, std::string f, int lonSec, int numR
             if (bf2.read((char *)&cliente2, sizeof(cliente2)))
             {
                 cliente2 = cliente2;
+            }
+        }
+    }
+}
+
+void ordenamientoMezclaNatural()
+{
+    int longSec;
+    int numEstructuras = inicializarArchivos();
+
+    // Empezamos el ordenamiento en 1
+    longSec = 1;
+
+    // Tomamos el tiempo antes de empezar
+    struct timeval t, t2;
+    int microsegundos;
+    gettimeofday(&t, NULL);
+
+    // Revisamos que hayan estructuras en el binario y con cada iteración vamos haciendo divisiones longSec más grandes
+    while (longSec < numEstructuras)
+    {
+        distribuirNatural("../Database/ClienteOrdenado.bin", "../Database/Izquierda.bin", "../Database/Derecha.bin", longSec, numEstructuras);
+        mezclar("../Database/Izquierda.bin", "../Database/Derecha.bin", "../Database/ClienteOrdenado.bin", longSec, numEstructuras);
+        longSec *= 2;
+    }
+
+    // Tomamos el tiempo al terminar y calculamos
+    gettimeofday(&t2, NULL);
+    microsegundos = ((t2.tv_usec - t.tv_usec) + ((t2.tv_sec - t.tv_sec) * 1000000.0f));
+    registro.listarClientes("../Database/ClienteOrdenado.bin");
+    std::cout << "Ordenamiento por Mezcla Natural Terminado.\n";
+    printf("Tiempo de ejecucion de Quicksort: %.16g microsegundos.\n", microsegundos);
+}
+
+void distribuirNatural(std::string f, std::string f1, std::string f2, int longSec, int numReg)
+{
+    int numSec, resto, i;
+
+    // Abrimos bf (copia) en lectura, y los dos auxiliares (bf y pw1) en escritura
+    std::ifstream bf(f, std::ios::binary);
+    std::ofstream pw1(f1, std::ios::binary), pw2(f2, std::ios::binary);
+
+    // longSec es la longitud de una de las mitades, por eso multiplicamos por 2 y calculamos cuántas secciones de ese tamaño se pueden formar en el archivo
+    numSec = numReg / (2 * longSec);
+    // Calculamos si hay algún sobrante en estas particiones para manejarlas por separado
+    resto = numReg % (2 * longSec);
+
+    // Accedemos a cada división con los dos archivos auxiliares
+    for (i = 1; i <= numSec; i++)
+    {
+        subSecuenciaNatural(bf, pw1, longSec);
+        subSecuenciaNatural(bf, pw2, longSec);
+    }
+
+    // Manejamos el resto, si se puede hacer una seccion completa se guarda en f1 y el restante en f2
+    if (resto > longSec)
+        resto -= longSec;
+    else
+    {
+        longSec = resto;
+        resto = 0;
+    }
+
+    subSecuenciaNatural(bf, pw1, longSec);
+    subSecuenciaNatural(bf, pw2, resto);
+}
+
+void subSecuenciaNatural(std::ifstream &f, std::ofstream &t, int longSec)
+{
+    // Escribimos las divisiones del archivo principal en el archivo auxiliar recibido correspondiente
+    Cliente cliente, clienteAnterior;
+    bool primero = true;
+    for (int j = 1; j <= longSec; j++)
+    {
+        if (f.read((char *)&cliente, sizeof(cliente)))
+        {
+            if (primero)
+            {
+                t.write((char *)&cliente, sizeof(cliente));
+                clienteAnterior = cliente;
+                primero = false;
+            }
+            else
+            {
+                if (std::string(cliente.nombre) >= std::string(clienteAnterior.nombre))
+                {
+                    t.write((char *)&cliente, sizeof(cliente));
+                    clienteAnterior = cliente;
+                }
+                else
+                {
+                    break;
+                }
             }
         }
     }
