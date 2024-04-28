@@ -1,10 +1,10 @@
 #include "registros.h"
 #include "modelos.h"
 
-void registros::listarClientes()
+void registros::listarClientes(std::string direccion)
 {
     int contador = 1;
-    std::fstream archivo("../Database/Cliente.bin", std::ios::binary | std::ios::in | std::ios::out);
+    std::fstream archivo(direccion, std::ios::binary | std::ios::in | std::ios::out);
     if (archivo.fail())
     {
         std::cerr << "No se pudo abrir el archivo.\n";

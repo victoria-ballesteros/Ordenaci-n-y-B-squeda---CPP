@@ -7,12 +7,13 @@
 #include <locale.h>
 #include <fstream>
 #include <cstring>
+#include <string>
 
 class registros
 {
 
 public:
-    void listarClientes();
+    void listarClientes(std::string direccion);
     void listarProductos();
 };
 
