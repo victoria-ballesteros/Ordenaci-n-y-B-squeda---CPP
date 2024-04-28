@@ -205,7 +205,7 @@ void ordenamientoMezclaDirecta()
     file.seekg(0, std::ios::beg);
     int numEstructuras = size / sizeof(Cliente);
 
-    // Guardamos en la copia y cambiamos los nombres a mayúsculas para las comparaciones ASCII
+    // Cambiamos los nombres a mayúsculas para las comparaciones ASCII usando un buffer
     Cliente *buffer = new Cliente[numEstructuras];
     file.read((char *)buffer, numEstructuras * sizeof(Cliente));
     for (int i = 0; i < numEstructuras; i++)
@@ -215,45 +215,55 @@ void ordenamientoMezclaDirecta()
             buffer[i].nombre[j] = toupper(buffer[i].nombre[j]);
         }
     }
+
+    // Luego guardamos las estructuras corregidas en el archivo auxiliar, eliminamos el buffer y cerramos el archivo copia
     ClienteOrdenadoAux.write((char *)buffer, (numEstructuras) * sizeof(Cliente));
     delete[] buffer;
     ClienteOrdenadoAux.close();
-    // Abro en ifstream
-    // std::ifstream ClienteOrdenado("../Database/ClienteOrdenado.bin", /*std::ios::in | std::ios::out | std::ios::trunc |*/ std::ios::binary);
 
-    // Abro los archivos auxiliares
-    // std::ofstream izquierda("../Database/Izquierda.bin", std::ios::binary);
-    // std::ofstream derecha("../Database/Derecha.bin", std::ios::binary);
-
-    // Empiezo el ordenamiento
+    // Empezamos el ordenamiento en 1
     longSec = 1;
+
+    // Tomamos el tiempo antes de empezar
+    struct timeval t, t2;
+    int microsegundos;
+    gettimeofday(&t, NULL);
+    // Revisamos que hayan estructucturas en el binario y con cada iteración vamos haciendo divisiones longSec más grandes
     while (longSec < numEstructuras)
     {
         distribuir("../Database/ClienteOrdenado.bin", "../Database/Izquierda.bin", "../Database/Derecha.bin", longSec, numEstructuras);
         mezclar("../Database/Izquierda.bin", "../Database/Derecha.bin", "../Database/ClienteOrdenado.bin", longSec, numEstructuras);
         longSec *= 2;
     }
+    // Tomamos el tiempo al terminar y calculamos
+    gettimeofday(&t2, NULL);
+    microsegundos = ((t2.tv_usec - t.tv_usec) + ((t2.tv_sec - t.tv_sec) * 1000000.0f));
     registro.listarClientes("../Database/ClienteOrdenado.bin");
-    // mergeSort(file, ClienteOrdenado, 0, numEstructuras - 1);
-    // // registro.listarClientes("../Database/ClienteOrdenado.bin");
-    std::cout << "Terminado\n";
+    std::cout << "Ordenamiento por Mezcla Directa Terminado.\n";
+    printf("Tiempo de ejecucion de Quicksort: %.16g microsegundos.\n", microsegundos);
 }
 
 void distribuir(std::string f, std::string f1, std::string f2, int longSec, int numReg)
 {
     int numSec, resto, i;
+
+    // Abrimos bf (copia) en lectura, y los dos auxiliares (bf y pw1) en escritura
     std::ifstream bf(f, std::ios::binary);
     std::ofstream pw1(f1, std::ios::binary), pw2(f2, std::ios::binary);
 
+    // longSec es la longitud de una de las mitades, por eso multiplicamos por 2 y calculamos cuántas secciones de ese tamaño se pueden formar en el archivo
     numSec = numReg / (2 * longSec);
+    // Calculamos si hay algún sobrante en estas particiones para manejarlas por separado
     resto = numReg % (2 * longSec);
 
+    // Accedemos a cada división con los dos archivos auxiliares
     for (i = 1; i <= numSec; i++)
     {
         subSecuencia(bf, pw1, longSec);
         subSecuencia(bf, pw2, longSec);
     }
 
+    // Manejamos el resto, si se puede hacer una seccion completa se guarda en f1 y el restante en f2
     if (resto > longSec)
         resto -= longSec;
     else
@@ -261,12 +271,14 @@ void distribuir(std::string f, std::string f1, std::string f2, int longSec, int 
         longSec = resto;
         resto = 0;
     }
+
     subSecuencia(bf, pw1, longSec);
     subSecuencia(bf, pw2, resto);
 }
 
 void subSecuencia(std::ifstream &f, std::ofstream &t, int longSec)
 {
+    // Escribimos las divisiones del archivo principal en el archivo auxiliar recibido correspondiente
     Cliente cliente;
     for (int j = 1; j <= longSec; j++)
     {
@@ -282,15 +294,19 @@ void mezclar(std::string f1, std::string f2, std::string f, int lonSec, int numR
     int numSec, resto, i, j, k;
     Cliente cliente1, cliente2;
 
+    // Nuevamente hacemos particiones para mezclar mitades entre los dos auxiliares
     numSec = numReg / (2 * lonSec);
     resto = numReg % (2 * lonSec);
 
+    // Abrimos los archivos nuevamente (si no se abren y cierran tras cada función la información no se guardará correctamente)
     std::ifstream bf1(f1, std::ios::binary), bf2(f2, std::ios::binary);
     std::ofstream pw(f, std::ios::binary);
 
+    // Leemos el primer registro de cada archivo auxiliar y los guardamos en las estructuras de tipo Cliente
     bf1.read((char *)&cliente1, sizeof(cliente1));
     bf2.read((char *)&cliente2, sizeof(cliente2));
 
+    // Se comparan las estructuras de los archivos auxiliares en bloques, y se van escribiendo con el nuevo orden en el archivo copia
     for (int s = 1; s <= numSec + 1; s++)
     {
         int n1, n2;
