@@ -25,8 +25,11 @@ void quicksort(std::vector<Producto> &producto, int izquierda, int derecha);
 
 // Método por Mezcla Directa
 void ordenamientoMezclaDirecta();
-void mergeSort(std::ifstream &file, std::fstream &ClienteOrdenado, int inicio, int final);
-void merge(std::ifstream &file, std::fstream &ClienteOrdenado, int inicio, int mitad, int final);
+void distribuir(std::string f, std::string f1, std::string f2, int longSec, int numReg);
+void subSecuencia(std::ifstream &f, std::ofstream &t, int longSec);
+void mezclar(std::string f1, std::string f2, std::string f, int lonSec, int numReg);
+
+// Método por Mezcla Natural
 
 int main()
 {
@@ -186,18 +189,23 @@ void dividirArchivo()
 
 void ordenamientoMezclaDirecta()
 {
+    int longSec;
+
+    // Abrimos el archivo original para duplicarlo en el auxiliar
     std::ifstream file("../Database/Cliente.bin", std::ios::binary | std::ios::ate);
-    std::fstream ClienteOrdenado("../Database/ClienteOrdenado.bin", std::ios::in | std::ios::out | std::ios::trunc | std::ios::binary);
-    if (!file || !ClienteOrdenado)
+    std::fstream ClienteOrdenadoAux("../Database/ClienteOrdenado.bin", std::ios::in | std::ios::out | std::ios::trunc | std::ios::binary);
+    if (!file || !ClienteOrdenadoAux)
     {
         std::cout << "No se pudo abrir uno de los archivos temporales.\n";
         return;
     }
 
+    // Calculamos el número de registros
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
     int numEstructuras = size / sizeof(Cliente);
-    // std::cout << numEstructuras << "\n";
+
+    // Guardamos en la copia y cambiamos los nombres a mayúsculas para las comparaciones ASCII
     Cliente *buffer = new Cliente[numEstructuras];
     file.read((char *)buffer, numEstructuras * sizeof(Cliente));
     for (int i = 0; i < numEstructuras; i++)
@@ -207,109 +215,136 @@ void ordenamientoMezclaDirecta()
             buffer[i].nombre[j] = toupper(buffer[i].nombre[j]);
         }
     }
-    ClienteOrdenado.write((char *)buffer, (numEstructuras) * sizeof(Cliente));
+    ClienteOrdenadoAux.write((char *)buffer, (numEstructuras) * sizeof(Cliente));
     delete[] buffer;
+    ClienteOrdenadoAux.close();
+    // Abro en ifstream
+    // std::ifstream ClienteOrdenado("../Database/ClienteOrdenado.bin", /*std::ios::in | std::ios::out | std::ios::trunc |*/ std::ios::binary);
 
-    // registro.listarClientes("../Database/ClienteOrdenado.bin");
-    mergeSort(file, ClienteOrdenado, 0, numEstructuras - 1);
-    // registro.listarClientes("../Database/ClienteOrdenado.bin");
+    // Abro los archivos auxiliares
+    // std::ofstream izquierda("../Database/Izquierda.bin", std::ios::binary);
+    // std::ofstream derecha("../Database/Derecha.bin", std::ios::binary);
+
+    // Empiezo el ordenamiento
+    longSec = 1;
+    while (longSec < numEstructuras)
+    {
+        distribuir("../Database/ClienteOrdenado.bin", "../Database/Izquierda.bin", "../Database/Derecha.bin", longSec, numEstructuras);
+        mezclar("../Database/Izquierda.bin", "../Database/Derecha.bin", "../Database/ClienteOrdenado.bin", longSec, numEstructuras);
+        longSec *= 2;
+    }
+    registro.listarClientes("../Database/ClienteOrdenado.bin");
+    // mergeSort(file, ClienteOrdenado, 0, numEstructuras - 1);
+    // // registro.listarClientes("../Database/ClienteOrdenado.bin");
     std::cout << "Terminado\n";
 }
 
-void mergeSort(std::ifstream &file, std::fstream &ClienteOrdenado, int inicio, int final)
+void distribuir(std::string f, std::string f1, std::string f2, int longSec, int numReg)
 {
-    if (inicio < final)
+    int numSec, resto, i;
+    std::ifstream bf(f, std::ios::binary);
+    std::ofstream pw1(f1, std::ios::binary), pw2(f2, std::ios::binary);
+
+    numSec = numReg / (2 * longSec);
+    resto = numReg % (2 * longSec);
+
+    for (i = 1; i <= numSec; i++)
     {
-        int mitad = inicio + (final - inicio) / 2;
-        // std::cout << "Terminado1\n";
-        mergeSort(file, ClienteOrdenado, inicio, mitad);
-        //  std::cout << "Terminado\n";
-        mergeSort(file, ClienteOrdenado, mitad + 1, final);
-        //  std::cout << "Terminado3\n";
-        merge(file, ClienteOrdenado, inicio, mitad, final);
-        // merge(file, ClienteOrdenado, mitad + 1, mitad / 2, final);
+        subSecuencia(bf, pw1, longSec);
+        subSecuencia(bf, pw2, longSec);
+    }
+
+    if (resto > longSec)
+        resto -= longSec;
+    else
+    {
+        longSec = resto;
+        resto = 0;
+    }
+    subSecuencia(bf, pw1, longSec);
+    subSecuencia(bf, pw2, resto);
+}
+
+void subSecuencia(std::ifstream &f, std::ofstream &t, int longSec)
+{
+    Cliente cliente;
+    for (int j = 1; j <= longSec; j++)
+    {
+        if (f.read((char *)&cliente, sizeof(cliente)))
+        {
+            t.write((char *)&cliente, sizeof(cliente));
+        }
     }
 }
-void merge(std::ifstream &file, std::fstream &ClienteOrdenado, int inicio, int mitad, int final)
+
+void mezclar(std::string f1, std::string f2, std::string f, int lonSec, int numReg)
 {
-    int i, j, k;
-    int elementosIzquierda = mitad - inicio + 1;
-    int elementosDerecha = final - mitad;
-    // Dividir el binario en dos partes
-    Cliente *buffer = new Cliente[final];
+    int numSec, resto, i, j, k;
+    Cliente cliente1, cliente2;
 
-    ClienteOrdenado.read((char *)buffer, final * sizeof(Cliente));
-    registro.listarClientes("../Database/ClienteOrdenado.bin");
-    // for (int i = 0; i < final; i++)
-    // {
-    //     for (int j = 0; buffer[i].nombre[j]; j++)
-    //     {
-    //         buffer[i].nombre[j] = toupper(buffer[i].nombre[j]);
-    //     }
-    // }
-    std::fstream izquierda("../Database/Izquierda.bin", std::ios::in | std::ios::out | std::ios::trunc | std::ios::binary);
-    std::fstream derecha("../Database/Derecha.bin", std::ios::in | std::ios::out | std::ios::trunc | std::ios::binary);
+    numSec = numReg / (2 * lonSec);
+    resto = numReg % (2 * lonSec);
 
-    // ClienteOrdenado.write((char *)buffer, (final) * sizeof(Cliente));
-    //  registro.listarClientes("../Database/ClienteOrdenado.bin");
+    std::ifstream bf1(f1, std::ios::binary), bf2(f2, std::ios::binary);
+    std::ofstream pw(f, std::ios::binary);
 
-    if (!izquierda || !derecha)
+    bf1.read((char *)&cliente1, sizeof(cliente1));
+    bf2.read((char *)&cliente2, sizeof(cliente2));
+
+    for (int s = 1; s <= numSec + 1; s++)
     {
-        std::cout << "No se pudo abrir uno de los archivos temporales.\n";
-        delete[] buffer;
-        return;
-    }
-    izquierda.write((char *)buffer, (final / 2) * sizeof(Cliente));
-    // registro.listarClientes("../Database/Izquierda.bin");
-    // std::cout << "Primera mitad\n\n";
-    derecha.write((char *)(buffer + final / 2), (final / 2) * sizeof(Cliente));
-    // registro.listarClientes("../Database/Derecha.bin");
-    // std::cout << "Segunda mitad\n\n";
-    delete[] buffer;
-
-    // Método
-    i = 0;
-    j = 0;
-    k = inicio;
-    Cliente Izquierda, Derecha;
-    while (i < elementosIzquierda && j < elementosDerecha)
-    {
-        izquierda.seekg(i * sizeof(Cliente), std::ios::beg);
-        izquierda.read((char *)&Izquierda, sizeof(Cliente));
-        derecha.seekg(j * sizeof(Cliente), std::ios::beg);
-        derecha.read((char *)&Derecha, sizeof(Cliente));
-        if (Izquierda.nombre <= Derecha.nombre)
+        int n1, n2;
+        n1 = n2 = lonSec;
+        if (s == numSec + 1)
         {
-            ClienteOrdenado.seekp(k * sizeof(Cliente));
-            ClienteOrdenado.write((char *)&Izquierda, sizeof(Cliente));
-            i++;
+            if (resto > lonSec)
+                n2 = resto - lonSec;
+            else
+            {
+                n1 = resto;
+                n2 = 0;
+            }
         }
-        else
+        i = j = 1;
+        while (i <= n1 && j <= n2)
         {
-            ClienteOrdenado.seekp(k * sizeof(Cliente));
-            ClienteOrdenado.write((char *)&Derecha, sizeof(Cliente));
-            j++;
+            Cliente cliente;
+            if (std::string(cliente1.nombre) < std::string(cliente2.nombre))
+            {
+                cliente = cliente1;
+                if (bf1.read((char *)&cliente1, sizeof(cliente1)))
+                {
+                    cliente1 = cliente1;
+                }
+                i++;
+            }
+            else
+            {
+                cliente = cliente2;
+                if (bf2.read((char *)&cliente2, sizeof(cliente2)))
+                {
+                    cliente2 = cliente2;
+                }
+                j++;
+            }
+            pw.write((char *)&cliente, sizeof(cliente));
         }
-        k++;
-    }
 
-    derecha.seekg(j * sizeof(Cliente), std::ios::beg);
-    derecha.read((char *)&Derecha, sizeof(Cliente));
-    while (j < elementosDerecha)
-    {
-        ClienteOrdenado.write((char *)&Derecha, sizeof(Cliente));
-        j++;
-        k++;
+        for (k = i; k <= n1; k++)
+        {
+            pw.write((char *)&cliente1, sizeof(cliente1));
+            if (bf1.read((char *)&cliente1, sizeof(cliente1)))
+            {
+                cliente1 = cliente1;
+            }
+        }
+        for (k = j; k <= n2; k++)
+        {
+            pw.write((char *)&cliente2, sizeof(cliente2));
+            if (bf2.read((char *)&cliente2, sizeof(cliente2)))
+            {
+                cliente2 = cliente2;
+            }
+        }
     }
-    izquierda.seekg(i * sizeof(Cliente), std::ios::beg);
-    izquierda.read((char *)&Izquierda, sizeof(Cliente));
-    while (i < elementosIzquierda)
-    {
-        ClienteOrdenado.write((char *)&Izquierda, sizeof(Cliente));
-        i++;
-        k++;
-    }
-
-    izquierda.close();
-    derecha.close();
 }
